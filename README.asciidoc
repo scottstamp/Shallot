@@ -1,6 +1,10 @@
 Shallot
 =======
 
+Changes
+-----
+Shallot has been updated with libssl 1.1.0 support after years of neglect.
+
 About
 -----
 Shallot allows you to create customized .onion addresses for
