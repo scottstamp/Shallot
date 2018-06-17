@@ -58,30 +58,37 @@ uint8_t sane_key(RSA *rsa) { // checks sanity of a RSA key (PKCS#1 v2.1)
 
   BN_CTX *ctx = BN_CTX_new();
   BN_CTX_start(ctx);
-  BIGNUM *p1     = BN_CTX_get(ctx), // p - 1
-         *q1     = BN_CTX_get(ctx), // q - 1
-         *chk    = BN_CTX_get(ctx), // storage to run checks with
-         *gcd    = BN_CTX_get(ctx), // GCD(p - 1, q - 1)
-         *lambda = BN_CTX_get(ctx); // LCM(p - 1, q - 1)
+  BIGNUM *p1     = BN_CTX_get(ctx),    // p - 1
+         *q1     = BN_CTX_get(ctx),    // q - 1
+         *chk    = BN_CTX_get(ctx),    // storage to run checks with
+         *gcd    = BN_CTX_get(ctx),    // GCD(p - 1, q - 1)
+         *lambda = BN_CTX_get(ctx),    // LCM(p - 1, q - 1)
+         *rsaP, *rsaQ,                 // factors
+         *rsaN, *rsaE, *rsaD,          // key
+         *rsaDMP1, *rsaDMQ1, *rsaIQMP; // cert params
 
-  BN_sub(p1, rsa->p, BN_value_one()); // p - 1
-  BN_sub(q1, rsa->q, BN_value_one()); // q - 1
+  RSA_get0_factors(rsa, &rsaP, &rsaQ);
+  RSA_get0_key(rsa, &rsaN, &rsaE, &rsaD);
+  RSA_get0_crt_params(rsa, &rsaDMP1, &rsaDMQ1, &rsaIQMP);
+
+  BN_sub(p1, rsaP, BN_value_one()); // p - 1
+  BN_sub(q1, rsaQ, BN_value_one()); // q - 1
   BN_gcd(gcd, p1, q1, ctx);           // gcd(p - 1, q - 1)
   BN_lcm(lambda, p1, q1, gcd, ctx);   // lambda(n)
 
-  BN_gcd(chk, lambda, rsa->e, ctx); // check if e is coprime to lambda(n)
+  BN_gcd(chk, lambda, rsaE, ctx); // check if e is coprime to lambda(n)
   if(!BN_is_one(chk))
     sane = 0;
 
   // check if public exponent e is less than n - 1
-  BN_sub(chk, rsa->e, rsa->n); // subtract n from e to avoid checking BN_is_zero
-  if(!chk->neg)
+  BN_sub(chk, rsaE, rsaN); // subtract n from e to avoid checking BN_is_zero
+  if(!BN_is_negative(chk))
     sane = 0;
 
-  BN_mod_inverse(rsa->d, rsa->e, lambda, ctx);    // d
-  BN_mod(rsa->dmp1, rsa->d, p1, ctx);             // d mod (p - 1)
-  BN_mod(rsa->dmq1, rsa->d, q1, ctx);             // d mod (q - 1)
-  BN_mod_inverse(rsa->iqmp, rsa->q, rsa->p, ctx); // q ^ -1 mod p
+  BN_mod_inverse(rsaD, rsaE, lambda, ctx);    // d
+  BN_mod(rsaDMP1, rsaD, p1, ctx);             // d mod (p - 1)
+  BN_mod(rsaDMQ1, rsaD, q1, ctx);             // d mod (q - 1)
+  BN_mod_inverse(rsaIQMP, rsaQ, rsaP, ctx); // q ^ -1 mod p
   BN_CTX_end(ctx);
   BN_CTX_free(ctx);
 
